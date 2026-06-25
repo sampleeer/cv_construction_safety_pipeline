@@ -1,0 +1,5 @@
+# DVC should ignore Python and build artifacts.
+__pycache__/
+.venv/
+dist/
+htmlcov/

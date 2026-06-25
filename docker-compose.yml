@@ -1,0 +1,27 @@
+services:
+  api:
+    build: .
+    image: ${DOCKER_IMAGE:-celeba-smiling-api:local}
+    ports:
+      - "${API_PORT:-8001}:8000"
+    environment:
+      MODEL_PATH: models/model.joblib
+    healthcheck:
+      test: ["CMD", "python", "-c", "import requests; raise SystemExit(0 if requests.get('http://localhost:8000/health', timeout=3).status_code == 200 else 1)"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+
+  cd-tests:
+    build: .
+    image: ${DOCKER_IMAGE:-celeba-smiling-api:local}
+    depends_on:
+      api:
+        condition: service_healthy
+    volumes:
+      - ./reports:/app/reports
+    command: >
+      python scripts/run_scenario.py
+      --base-url http://api:8000
+      --scenario scenario.json
+      --output reports/functional_test_results.json

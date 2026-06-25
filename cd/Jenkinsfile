@@ -1,0 +1,36 @@
+pipeline {
+  agent any
+
+  parameters {
+    string(name: 'DOCKER_IMAGE', defaultValue: 'celeba-smiling-api:local', description: 'Docker image to deploy and test')
+  }
+
+  triggers {
+    cron('H 2 * * *')
+  }
+
+  stages {
+    stage('Start API container') {
+      steps {
+        sh 'DOCKER_IMAGE=$DOCKER_IMAGE docker compose up -d api'
+      }
+    }
+
+    stage('Functional tests inside container') {
+      steps {
+        sh 'DOCKER_IMAGE=$DOCKER_IMAGE docker compose up --abort-on-container-exit --exit-code-from cd-tests cd-tests'
+      }
+      post {
+        always {
+          archiveArtifacts allowEmptyArchive: true, artifacts: 'reports/functional_test_results.json'
+        }
+      }
+    }
+  }
+
+  post {
+    always {
+      sh 'docker compose down --remove-orphans'
+    }
+  }
+}
