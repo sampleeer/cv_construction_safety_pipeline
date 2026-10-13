@@ -1,27 +1,28 @@
 services:
   api:
     build: .
-    image: ${DOCKER_IMAGE:-celeba-smiling-api:local}
+    image: ${DOCKER_IMAGE:-cv-mlops:local}
     ports:
-      - "${API_PORT:-8001}:8000"
+      - "127.0.0.1:${API_PORT:-8000}:8000"
     environment:
-      MODEL_PATH: models/model.joblib
+      ORT_THREADS: ${ORT_THREADS:-2}
+      MAX_INFLIGHT: ${MAX_INFLIGHT:-2}
+      HELMET_DB: /app/artifacts/events.sqlite
+      HELMET_SNAPSHOTS: /app/artifacts/snapshots
+    volumes:
+      - helmet-events:/app/artifacts
     healthcheck:
-      test: ["CMD", "python", "-c", "import requests; raise SystemExit(0 if requests.get('http://localhost:8000/health', timeout=3).status_code == 200 else 1)"]
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/ready', timeout=3)"]
       interval: 10s
       timeout: 5s
       retries: 6
-
   cd-tests:
     build: .
-    image: ${DOCKER_IMAGE:-celeba-smiling-api:local}
+    image: ${DOCKER_IMAGE:-cv-mlops:local}
     depends_on:
       api:
         condition: service_healthy
-    volumes:
-      - ./reports:/app/reports
-    command: >
-      python scripts/run_scenario.py
-      --base-url http://api:8000
-      --scenario scenario.json
-      --output reports/functional_test_results.json
+    command: ["python", "scripts/smoke_cv.py", "--url", "http://api:8000"]
+
+volumes:
+  helmet-events:

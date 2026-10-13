@@ -1,105 +1,148 @@
-# CelebA Smiling MLOps
+# HelmetWatch — контроль касок на стройке
 
-## Датасет
+Python-проект для детекции касок и голов без касок на изображениях и видеопотоках.
+Подтверждённые нарушения сохраняются в SQLite со снимком, камерой, временем и версией
+модели. Страница в браузере показывает детекции на фото и журнал событий.
 
-Используется CelebA: более 200 000 изображений лиц знаменитостей и 40 бинарных
-атрибутов на изображение. Официальная страница:
-<http://mmlab.ie.cuhk.edu.hk/projects/CelebA.html>.
-
-Для итогового запуска скачайте `Attributes Annotations` и положите файл:
-
-```bash
-data/raw/list_attr_celeba.txt
+```text
+Construction-PPE → подготовка 3 классов → дообучение YOLO11n → test evaluation
+                                                                   ↓
+                                              ONNX export + parity + manifest
+                                                                   ↓
+Видео → OpenCV → очередь последнего кадра → HTTP /inspect → ONNX Runtime
+                                                                   ↓
+                                       IoU-треки → подтверждение → SQLite + снимок
+                                                                   ↓
+                                                   веб-страница /events /metrics
 ```
 
-Для CI и локальной проверки без полного датасета включен demo-режим: если файл
-отсутствует, pipeline создает небольшой детерминированный CelebA-like набор.
+## Запуск уже подготовленного проекта
 
-## Быстрый старт
+В этой рабочей копии виртуальное окружение и обученная экспериментальная модель подготовлены:
 
 ```bash
-python -m venv .venv
 source .venv/bin/activate
-python -m pip install -r requirements.txt
-
-dvc repro
-pytest
-uvicorn src.api.main:app --host 0.0.0.0 --port 8000
+uvicorn src.api.main:app --host 127.0.0.1 --port 8000
 ```
 
-Проверка API:
+Откройте **http://localhost:8000**: проверка фотографии и журнал нарушений.
+Документация API: http://localhost:8000/docs.
 
 ```bash
-curl http://localhost:8000/model
-curl -X POST http://localhost:8000/predict \
-  -H 'Content-Type: application/json' \
-  -d '{"features":{"Mouth_Slightly_Open":1,"High_Cheekbones":1,"Young":1,"Attractive":1}}'
+# Одиночное фото: только детекции, без события
+python scripts/demo_cv.py --image photo.jpg --output artifacts/helmet-detection.jpg
+# Видеопоток: подтверждение нарушений, снимки и журнал
+python -m src.cv.video --source video.mp4 --camera site-1 --inspect
+# Камера 0, ограниченный запуск
+python -m src.cv.video --source 0 --camera webcam-1 --inspect --max-frames 100
 ```
+
+## Встроенная демонстрация
+
+```bash
+python -m src.helmet.demo
+python scripts/demo_cv.py --image artifacts/helmet-sample.jpg --output artifacts/helmet-detection.jpg
+python -m src.cv.video --source artifacts/helmet-demo.avi --camera helmet-demo --inspect
+```
+
+Демо выбирает успешный пример из validation и повторяет фотографию в видео. Оно проверяет
+цепочку обработки и события; это не оценка качества на настоящем видеопотоке.
+
+## Воспроизвести с чистого клона
+
+Python 3.11/3.12. Для первого скачивания нужен интернет; обучение идёт локально.
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements-export.txt
+python scripts/download_model.py
+python -m src.helmet.download
+# prepare → train → evaluate → export → benchmark
+# Демо: 384 train, 96 val, 96 test, 24 эпохи, вход 320×320, CPU.
+dvc repro
+uvicorn src.api.main:app --host 127.0.0.1 --port 8000
+```
+
+Для полного обучения:
+
+```bash
+cp configs/helmet-full.yaml params.yaml
+# В params.yaml можно явно указать device: 0 для NVIDIA GPU или device: mps для Apple GPU.
+dvc repro
+```
+
+Полный профиль: весь набор, 40 эпох, 640×640, quality gate. На CPU это существенно
+дольше демо. Профили являются стартовыми конфигурациями, а не обещанием заданного качества.
+Если gate не пройден, экспорт новой модели останавливается. Перед развёртыванием проверьте
+версию и статус выбранного артефакта в `models/cv/manifest.json`.
+
+## Правила нарушения
+
+Событие создаётся после **трёх последовательных детекций `no_helmet` за минимум секунду**.
+Одна плохая детекция или отсутствие каски в списке объектов не создают событие.
+Система закрывает событие после двух детекций каски, потери трека или завершения потока;
+причина сохраняется отдельно. IoU-трекер работает с областями головы и не распознаёт личности.
+
+[Семантика разметки, архитектура, ограничения и вопросы для интервью](docs/helmet-design.md).
+
+## API
+
+- `POST /detect`: JPEG/PNG байты → боксы, классы, уверенность, время инференса.
+- `POST /inspect?camera_id=site-1&frame_id=0`: детекции + треки + переходы событий.
+- `POST /cameras/site-1/end`: завершить сессию камеры и закрыть её события.
+- `GET /events?camera_id=site-1&limit=50&offset=0`: журнал событий.
+- `GET /events/{id}/snapshot`: снимок подтверждённого нарушения.
+- `GET /model`: классы, версия, provenance, качество, статус выпуска.
+- `GET /health`, `/ready`: liveness и проверка загруженной модели.
+- `GET /metrics`: запросы, задержка, число подтверждённых нарушений.
+
+Изображения ограничены 8 MiB / 12 мегапикселями. Максимум два одновременных запроса;
+перегрузка возвращает 429. На каждую камеру нужен возрастающий `frame_id`; повторный
+кадр возвращает 409. При новом запуске клиента завершите старую сессию либо задайте новый ID.
+Сервер запускается **с одним worker**, поскольку треки находятся в памяти процесса.
 
 ## Docker
 
-```bash
-docker build -t celeba-smiling-api:local .
-docker compose up api
-```
-
-По умолчанию compose публикует API на `localhost:8001`, чтобы не конфликтовать
-с локальным dev-сервером на `8000`. Для публикации на `8000`:
+Сначала выполните пайплайн и подготовьте `models/cv`. PyTorch в runtime-контейнере отсутствует.
 
 ```bash
-API_PORT=8000 docker compose up api
+docker compose up --build api
+# Проверка API из другого терминала
+docker compose up --abort-on-container-exit --exit-code-from cd-tests cd-tests
+docker compose down
 ```
 
-Функциональные CD-тесты внутри контейнера:
+Volume `helmet-events` сохраняет SQLite и снимки между перезапусками контейнера.
+`API_PORT=8001` меняет внешний порт. `ORT_THREADS` и `MAX_INFLIGHT` управляют нагрузкой.
+Порты по умолчанию доступны с localhost.
+
+## Качество кода и CI/CD
 
 ```bash
-docker compose up --build --abort-on-container-exit --exit-code-from cd-tests cd-tests
+make lint typecheck test
+# Если make недоступен:
+ruff check src/cv src/helmet src/api/main.py tests/cv tests/helmet scripts/download_model.py scripts/smoke_cv.py scripts/demo_cv.py
+mypy src/helmet/events.py src/helmet/store.py src/helmet/dataset.py src/cv/detector.py src/cv/video.py src/cv/benchmark.py src/api/main.py
+pytest
 ```
 
-## DVC
+PR запускает проверки Python, правил событий, SQLite, преобразования данных, ONNX и API
+без скачивания датасета. Push/manual запускает обучение демо, оценку, экспорт, benchmark
+и контейнерные smoke-тесты. Tagged release публикует образ только для `qualified` модели.
+Настройка DVC remote остаётся задачей окружения; без remote данные скачиваются, а модель
+воспроизводится заново. Jenkins-примеры включены в `ci/` и `cd/`.
 
-Pipeline описан в `dvc.yaml`:
+## Статус модели
 
-1. `prepare` создает `data/processed/celeba_smiling.csv`;
-2. `train` обучает `models/model.joblib`;
-3. `evaluate` пишет `reports/metrics.json` и проверяет quality gate.
+Локальный результат — **experimental**. Демо обучается на части публичного датасета;
+это не подтверждение качества на вашей стройплощадке. Точные результаты находятся в
+`reports/helmet-quality.json`, детали выполненных проверок — в [отчёте](docs/verification.md).
+Модельные метрики на фотографиях не заменяют оценку событий на реальном видео.
 
-После загрузки официального файла:
+Источник данных и лицензия: [Construction-PPE / AGPL-3.0](https://docs.ultralytics.com/datasets/detect/construction-ppe/).
+Исходные веса и экспорт: [Ultralytics YOLO11](https://docs.ultralytics.com/models/yolo11/).
+Датасет и веса в Git не включаются; загрузчик и fingerprints позволяют восстановить окружение.
 
-```bash
-dvc add data/raw/list_attr_celeba.txt
-dvc repro
-```
-
-## CI/CD
-
-Доступны два варианта конфигурации:
-
-- `ci/Jenkinsfile` - CI: зависимости, DVC pipeline, тесты, сборка Docker image,
-  push в DockerHub при pull request в `main`, генерация `dev_sec_ops.yml`;
-- `cd/Jenkinsfile` - CD: запуск контейнера и функциональные тесты по
-  `scenario.json`;
-- `.github/workflows/ci.yml` - аналогичный GitHub Actions workflow для PR и
-  ручного запуска.
-
-Для DockerHub нужны секреты/credentials:
-
-- Jenkins credential `dockerhub` с логином и токеном DockerHub;
-- GitHub Actions secrets `DOCKERHUB_USERNAME` и `DOCKERHUB_TOKEN`.
-
-## Структура
-
-```text
-src/data/prepare.py       # подготовка CelebA attributes
-src/models/train.py       # обучение LogisticRegression
-src/models/evaluate.py    # расчет метрик и quality gate
-src/api/main.py           # FastAPI сервис
-tests/                    # pytest тесты
-scripts/run_scenario.py   # CD functional scenario runner
-scripts/generate_dev_sec_ops.py
-config.ini
-dvc.yaml
-Dockerfile
-docker-compose.yml
-scenario.json
-```
+Старое упражнение CelebA сохранено отдельно: `src/api/legacy.py`, `src/data`, `src/models`.
+[Формулировка для резюме](docs/resume.md).

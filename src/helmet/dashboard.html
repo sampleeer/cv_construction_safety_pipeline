@@ -1,0 +1,24 @@
+<!doctype html><html lang="ru"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>HelmetWatch — контроль касок</title>
+<style>
+body{font:16px system-ui;background:#10161f;color:#e8edf5;margin:0}main{max-width:1100px;margin:auto;padding:32px}
+h1{margin-bottom:8px}p{color:#aebdd0}section{background:#1a2534;border:1px solid #304056;border-radius:12px;padding:24px;margin:24px 0}
+button,input{padding:10px;border-radius:6px;font:inherit}button{background:#64e1c0;border:0;cursor:pointer}
+canvas{max-width:100%;display:none;margin-top:16px}table{width:100%;border-collapse:collapse}td,th{padding:12px;text-align:left;border-bottom:1px solid #304056}
+a{color:#64e1c0}.notice{color:#ffcc80}#status{white-space:pre-wrap}small{color:#aebdd0}
+</style><main><h1>HelmetWatch</h1><p>Контроль касок на стройке · детекция → подтверждение по кадрам → журнал событий</p>
+<p id="model" class="notice">Проверка модели…</p>
+<section><h2>Проверить фотографию</h2><p>Фото показывает детекции. События создаёт видеоклиент после подтверждения нарушения по нескольким кадрам.</p>
+<input id="file" type="file" accept="image/jpeg,image/png"><button id="detect">Проверить</button><p id="status"></p><canvas id="preview"></canvas></section>
+<section><h2>Журнал нарушений</h2><small>Для видеопотока запускайте python -m src.cv.video --source video.mp4 --camera site-1 --inspect</small>
+<p><button id="refresh">Обновить журнал</button></p><table><thead><tr><th>Время</th><th>Камера</th><th>Статус</th><th>Причина завершения</th><th>Снимок</th></tr></thead><tbody id="events"></tbody></table></section>
+</main><script>
+const status=document.getElementById('status');
+const labels={helmet:'Каска',no_helmet:'Без каски',person:'Человек'};
+const reasons={stream_ended:'Поток завершён',lost_track:'Потеря трека',helmet_seen:'Каска обнаружена',server_restart:'Перезапуск сервера',model_changed:'Смена модели'};
+async function model(){try{const r=await fetch('/model');if(!r.ok)throw Error('Модель не загружена');const m=await r.json();document.getElementById('model').textContent=`Модель ${m.version} · ${m.release_status||'generic'} · ${m.labels.map(x=>labels[x]||x).join(', ')}${m.release_status==='experimental'?' — экспериментальная модель, качество ещё требует дообучения':''}`;}catch(e){document.getElementById('model').textContent=e.message;}}
+async function events(){try{const r=await fetch('/events');if(!r.ok)throw Error('Журнал недоступен');const items=await r.json();const tbody=document.getElementById('events');tbody.replaceChildren();for(const e of items){const row=document.createElement('tr');for(const value of [new Date(e.started_at*1000).toLocaleString(),e.camera_id,e.status==='open'?'Активно':'Завершено',reasons[e.end_reason]||e.end_reason||'—']){const td=document.createElement('td');td.textContent=value;row.append(td);}const td=document.createElement('td');if(e.snapshot_url){const a=document.createElement('a');a.href=e.snapshot_url;a.textContent='Открыть';a.target='_blank';a.rel='noopener';td.append(a);}row.append(td);tbody.append(row);}if(!items.length){const row=document.createElement('tr'),td=document.createElement('td');td.colSpan=5;td.textContent='Событий пока нет';row.append(td);tbody.append(row);}}catch(e){status.textContent=e.message;}}
+document.getElementById('refresh').onclick=events;
+document.getElementById('detect').onclick=async()=>{const file=document.getElementById('file').files[0];if(!file)return;status.textContent='Обработка…';try{const r=await fetch('/detect',{method:'POST',headers:{'Content-Type':file.type},body:file});const data=await r.json();if(!r.ok)throw Error(data.detail||'Ошибка');const bitmap=await createImageBitmap(file);const canvas=document.getElementById('preview');canvas.style.display='block';canvas.width=bitmap.width;canvas.height=bitmap.height;const ctx=canvas.getContext('2d');ctx.drawImage(bitmap,0,0);ctx.lineWidth=Math.max(2,canvas.width/300);ctx.font=`${Math.max(14,canvas.width/45)}px system-ui`;for(const d of data.detections){ctx.strokeStyle=d.label==='no_helmet'?'#ff6262':'#64e1c0';ctx.fillStyle=ctx.strokeStyle;const [x1,y1,x2,y2]=d.box;ctx.strokeRect(x1,y1,x2-x1,y2-y1);ctx.fillText(`${labels[d.label]||d.label} ${d.confidence.toFixed(2)}`,x1,Math.max(20,y1-5));}bitmap.close();status.textContent=`Объектов: ${data.detections.length}. Инференс: ${data.inference_ms} мс.`;}catch(e){status.textContent=e.message;}};
+model();events();setInterval(events,5000);
+</script></html>

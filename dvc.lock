@@ -1,79 +1,144 @@
 schema: '2.0'
 stages:
-  prepare:
-    cmd: python -m src.data.prepare --config config.ini
+  export:
+    cmd: python -m src.cv.export --checkpoint models/helmet-training/best.pt
+      --lineage models/helmet-training/lineage.json --quality
+      reports/helmet-quality.json --config params.yaml
     deps:
-    - path: config.ini
+    - path: models/helmet-training
       hash: md5
-      md5: a7e067fd7f752c5117ccb813849f84a2
-      size: 439
-    - path: data/raw
-      hash: md5
-      md5: 420beb6502d9dbea8414070c5af2fb1e.dir
-      size: 432
+      md5: 2f648a6d0b1b0966be6180f53c88a0ee.dir
+      size: 5429030
       nfiles: 2
-    - path: src/config.py
+    - path: params.yaml
       hash: md5
-      md5: 43c5349e7d543beb7d19e8e92975c132
-      size: 2562
-    - path: src/data/prepare.py
+      md5: 66e5e68f7d787c3af26dc174e35b36ec
+      size: 196
+    - path: reports/helmet-quality.json
       hash: md5
-      md5: bf238350a2038b5960df34bd4a4f7108
-      size: 4808
+      md5: 1288edeb7b11c13de4d0a329aac3e6c6
+      size: 870
+    - path: requirements-export.txt
+      hash: md5
+      md5: 66f2e6241df34eff033ce061c241b3c0
+      size: 102
+    - path: src/cv/detector.py
+      hash: md5
+      md5: 821ed7c6306cb51b11cea6ecf226b940
+      size: 5207
+    - path: src/cv/export.py
+      hash: md5
+      md5: 161ebd4abe5adde7f707e95ccc2960e0
+      size: 5777
     outs:
-    - path: data/processed/celeba_smiling.csv
+    - path: models/cv
       hash: md5
-      md5: 48d4595a809dc6edac9306c2ae849570
-      size: 505488
+      md5: 1fa95e12ca64d6de0d7b7fb0b4b030b9.dir
+      size: 10443448
+      nfiles: 2
+  benchmark:
+    cmd: python -m src.cv.benchmark --repeats 30
+    deps:
+    - path: models/cv
+      hash: md5
+      md5: 1fa95e12ca64d6de0d7b7fb0b4b030b9.dir
+      size: 10443448
+      nfiles: 2
+    - path: src/cv/benchmark.py
+      hash: md5
+      md5: e5f9a7e29894ee7953ed41795caeda25
+      size: 2461
+    - path: src/cv/detector.py
+      hash: md5
+      md5: 821ed7c6306cb51b11cea6ecf226b940
+      size: 5207
+    outs:
+    - path: reports/cv-benchmark.json
+      hash: md5
+      md5: 40859ccf2d6f220529fda16ad0f1bab8
+      size: 638
+  prepare:
+    cmd: python -m src.helmet.dataset --config params.yaml
+    deps:
+    - path: data/raw/ppe/construction-ppe.zip
+      hash: md5
+      md5: a2fd2fb140bd53ee6c93ef00b37e6f9e
+      size: 178415813
+    - path: params.yaml
+      hash: md5
+      md5: 66e5e68f7d787c3af26dc174e35b36ec
+      size: 196
+    - path: src/cv/detector.py
+      hash: md5
+      md5: 821ed7c6306cb51b11cea6ecf226b940
+      size: 5207
+    - path: src/helmet/dataset.py
+      hash: md5
+      md5: dc8e261d7be51d193b40d47b24a783df
+      size: 6863
+    outs:
+    - path: data/helmet
+      hash: md5
+      md5: e38eae9489aca7837d9ad7c7417a62cb.dir
+      size: 100053263
+      nfiles: 1154
   train:
-    cmd: python -m src.models.train --config config.ini
+    cmd: python -m src.helmet.train --config params.yaml
     deps:
-    - path: config.ini
+    - path: data/helmet
       hash: md5
-      md5: a7e067fd7f752c5117ccb813849f84a2
-      size: 439
-    - path: data/processed/celeba_smiling.csv
+      md5: e38eae9489aca7837d9ad7c7417a62cb.dir
+      size: 100053263
+      nfiles: 1154
+    - path: models/source/yolo11n.pt
       hash: md5
-      md5: 48d4595a809dc6edac9306c2ae849570
-      size: 505488
-    - path: src/config.py
+      md5: 261474e91b15f5ef14a63c21ce6c0cbb
+      size: 5613764
+    - path: params.yaml
       hash: md5
-      md5: 43c5349e7d543beb7d19e8e92975c132
-      size: 2562
-    - path: src/models/train.py
+      md5: 66e5e68f7d787c3af26dc174e35b36ec
+      size: 196
+    - path: requirements-export.txt
       hash: md5
-      md5: 3da9230202015cd3e134b36f1f4e99fd
-      size: 3634
+      md5: 66f2e6241df34eff033ce061c241b3c0
+      size: 102
+    - path: src/helmet/train.py
+      hash: md5
+      md5: f1248fd996710f3e8bd5e07ed877d0da
+      size: 2595
     outs:
-    - path: models/model.joblib
+    - path: models/helmet-training
       hash: md5
-      md5: 8c02110cbfdf68850bcdfc0c007e8ba8
-      size: 4061
+      md5: 2f648a6d0b1b0966be6180f53c88a0ee.dir
+      size: 5429030
+      nfiles: 2
   evaluate:
-    cmd: python -m src.models.evaluate --config config.ini
+    cmd: python -m src.helmet.evaluate --config params.yaml
     deps:
-    - path: config.ini
+    - path: data/helmet
       hash: md5
-      md5: a7e067fd7f752c5117ccb813849f84a2
-      size: 439
-    - path: data/processed/celeba_smiling.csv
+      md5: e38eae9489aca7837d9ad7c7417a62cb.dir
+      size: 100053263
+      nfiles: 1154
+    - path: models/helmet-training
       hash: md5
-      md5: 48d4595a809dc6edac9306c2ae849570
-      size: 505488
-    - path: models/model.joblib
+      md5: 2f648a6d0b1b0966be6180f53c88a0ee.dir
+      size: 5429030
+      nfiles: 2
+    - path: params.yaml
       hash: md5
-      md5: 8c02110cbfdf68850bcdfc0c007e8ba8
-      size: 4061
-    - path: src/config.py
+      md5: 66e5e68f7d787c3af26dc174e35b36ec
+      size: 196
+    - path: src/helmet/evaluate.py
       hash: md5
-      md5: 43c5349e7d543beb7d19e8e92975c132
-      size: 2562
-    - path: src/models/evaluate.py
+      md5: 1ef616ff3007c4c058e1f8ad9557443e
+      size: 2746
+    - path: src/helmet/quality.py
       hash: md5
-      md5: faf16a3ddec7d56856003fe094da7461
-      size: 2529
+      md5: b3c153636c1a2b91a1b3cf311056f37a
+      size: 554
     outs:
-    - path: reports/metrics.json
+    - path: reports/helmet-quality.json
       hash: md5
-      md5: 02b7dd95c460330d609dcc7a738602a8
-      size: 1028
+      md5: 1288edeb7b11c13de4d0a329aac3e6c6
+      size: 870

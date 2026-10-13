@@ -22,3 +22,14 @@ reports/*
 dist/
 *.zip
 .DS_Store
+
+.ruff_cache/
+.mypy_cache/
+runs/
+*.pt
+*.onnx
+artifacts/
+.dvc-site-cache/
+data/helmet/
+data/helmet-full/
+*.sqlite*

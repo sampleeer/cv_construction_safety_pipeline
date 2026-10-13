@@ -1,43 +1,25 @@
-.PHONY: install prepare train evaluate dvc test api docker-build compose-up compose-test devsecops dist clean
-
-IMAGE ?= celeba-smiling-api:local
-
+.PHONY: install download pipeline test lint typecheck api benchmark video docker-build compose-test
+IMAGE ?= cv-mlops:local
 install:
-	python -m pip install --upgrade pip
-	python -m pip install -r requirements.txt
-
-prepare:
-	python -m src.data.prepare --config config.ini
-
-train:
-	python -m src.models.train --config config.ini
-
-evaluate:
-	python -m src.models.evaluate --config config.ini
-
-dvc:
+	python -m pip install -r requirements-export.txt -r requirements.txt
+download:
+	python scripts/download_model.py
+	python -m src.helmet.download
+pipeline:
 	dvc repro
-
 test:
 	pytest
-
+lint:
+	ruff check src/cv src/helmet src/api/main.py tests/cv tests/helmet scripts/download_model.py scripts/smoke_cv.py scripts/demo_cv.py
+typecheck:
+	mypy src/helmet/events.py src/helmet/store.py src/helmet/dataset.py src/helmet/quality.py src/cv/detector.py src/cv/video.py src/cv/benchmark.py src/api/main.py
 api:
-	uvicorn src.api.main:app --host 0.0.0.0 --port 8000
-
+	uvicorn src.api.main:app --host 127.0.0.1 --port 8000
+benchmark:
+	python -m src.cv.benchmark
+video:
+	python -m src.cv.video --source "$(SOURCE)"
 docker-build:
 	docker build -t $(IMAGE) .
-
-compose-up:
-	DOCKER_IMAGE=$(IMAGE) docker compose up --build api
-
 compose-test:
-	API_PORT=8001 DOCKER_IMAGE=$(IMAGE) docker compose up --build --abort-on-container-exit --exit-code-from cd-tests cd-tests
-
-devsecops:
-	python scripts/generate_dev_sec_ops.py --image $(IMAGE) --coverage coverage.xml --output dev_sec_ops.yml
-
-dist:
-	python scripts/create_dist.py --output dist/celeba_smiling_mlops.zip
-
-clean:
-	rm -rf .pytest_cache htmlcov coverage.xml .coverage dist
+	DOCKER_IMAGE=$(IMAGE) docker compose up --build --abort-on-container-exit --exit-code-from cd-tests cd-tests

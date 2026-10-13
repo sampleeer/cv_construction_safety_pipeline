@@ -1,0 +1,34 @@
+{
+  "profile": "demo",
+  "split": "test",
+  "input_size": 320,
+  "checkpoint_sha256": "b64d1d7ea4c6b8ed01b5ef445d94dea5db56988478d77742e25309eee4e493cc",
+  "map50": 0.6267825652417219,
+  "map50_95": 0.3308686786580789,
+  "classes": {
+    "helmet": {
+      "precision": 0.9183579604658825,
+      "recall": 0.7909294247295358,
+      "map50": 0.8596370129103824,
+      "map50_95": 0.4613552810339243
+    },
+    "no_helmet": {
+      "precision": 0.28578539711543416,
+      "recall": 0.16,
+      "map50": 0.14465315864653006,
+      "map50_95": 0.056936457029367296
+    },
+    "person": {
+      "precision": 0.7791373674816714,
+      "recall": 0.8758169934640523,
+      "map50": 0.8760575241682534,
+      "map50_95": 0.47431429791094526
+    }
+  },
+  "gate": {
+    "passed": true,
+    "min_map50": 0.0,
+    "min_no_helmet_recall": 0.0
+  },
+  "release_status": "experimental"
+}

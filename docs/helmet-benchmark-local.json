@@ -1,0 +1,20 @@
+{
+  "model_version": "88113a350b99",
+  "model_sha256": "88113a350b9934aaaca51c7c4a42ea7fc849a06fe2922d8107fdf4449172c816",
+  "input": "seeded synthetic 640x480 BGR image; NOT a dataset accuracy evaluation",
+  "input_size": 320,
+  "platform": "macOS-14.5-arm64-arm-64bit",
+  "machine": "arm64",
+  "python": "3.12.0",
+  "providers": [
+    "CPUExecutionProvider"
+  ],
+  "ort_threads": 2,
+  "repeats": 30,
+  "warmup": 5,
+  "mean_ms": 23.978229267474187,
+  "p50_ms": 19.537749998562504,
+  "p95_ms": 33.73030624788953,
+  "sequential_fps": 41.70449739407875,
+  "scope": "preprocess + ONNX inference + NMS; excludes network and image decoding"
+}

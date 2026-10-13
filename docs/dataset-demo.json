@@ -1,0 +1,42 @@
+{
+  "source_url": "https://github.com/ultralytics/assets/releases/download/v0.0.0/construction-ppe.zip",
+  "archive_sha256": "bef8dcb599aa4e9d9f5e602cb6fa7143d3c84d7f6a0ff40463d7f2a4c2632ccc",
+  "license": "AGPL-3.0 (upstream dataset)",
+  "profile": "demo",
+  "seed": 42,
+  "labels": [
+    "helmet",
+    "no_helmet",
+    "person"
+  ],
+  "fingerprint": "86da5ce5a24f069ca640ad6571056be734df1a37d48707e469f69f6b18a1b012",
+  "splits": {
+    "test": {
+      "images": 96,
+      "objects": {
+        "helmet": 128,
+        "no_helmet": 25,
+        "person": 153
+      },
+      "duplicates_removed": 0
+    },
+    "val": {
+      "images": 96,
+      "objects": {
+        "helmet": 124,
+        "no_helmet": 29,
+        "person": 145
+      },
+      "duplicates_removed": 0
+    },
+    "train": {
+      "images": 384,
+      "objects": {
+        "helmet": 200,
+        "no_helmet": 400,
+        "person": 623
+      },
+      "duplicates_removed": 0
+    }
+  }
+}

@@ -1,32 +1,51 @@
 stages:
   prepare:
-    cmd: python -m src.data.prepare --config config.ini
+    cmd: python -m src.helmet.dataset --config params.yaml
     deps:
-      - config.ini
-      - src/config.py
-      - src/data/prepare.py
-      - data/raw
+      - data/raw/ppe/construction-ppe.zip
+      - src/helmet/dataset.py
+      - src/cv/detector.py
+      - params.yaml
     outs:
-      - data/processed/celeba_smiling.csv
-
+      - data/helmet
   train:
-    cmd: python -m src.models.train --config config.ini
+    cmd: python -m src.helmet.train --config params.yaml
     deps:
-      - config.ini
-      - src/config.py
-      - src/models/train.py
-      - data/processed/celeba_smiling.csv
+      - data/helmet
+      - models/source/yolo11n.pt
+      - src/helmet/train.py
+      - requirements-export.txt
+      - params.yaml
     outs:
-      - models/model.joblib
-
+      - models/helmet-training
   evaluate:
-    cmd: python -m src.models.evaluate --config config.ini
+    cmd: python -m src.helmet.evaluate --config params.yaml
     deps:
-      - config.ini
-      - src/config.py
-      - src/models/evaluate.py
-      - data/processed/celeba_smiling.csv
-      - models/model.joblib
+      - data/helmet
+      - models/helmet-training
+      - src/helmet/evaluate.py
+      - src/helmet/quality.py
+      - params.yaml
     metrics:
-      - reports/metrics.json:
+      - reports/helmet-quality.json:
+          cache: false
+  export:
+    cmd: python -m src.cv.export --checkpoint models/helmet-training/best.pt --lineage models/helmet-training/lineage.json --quality reports/helmet-quality.json --config params.yaml
+    deps:
+      - models/helmet-training
+      - reports/helmet-quality.json
+      - src/cv/export.py
+      - src/cv/detector.py
+      - requirements-export.txt
+      - params.yaml
+    outs:
+      - models/cv
+  benchmark:
+    cmd: python -m src.cv.benchmark --repeats 30
+    deps:
+      - models/cv
+      - src/cv/benchmark.py
+      - src/cv/detector.py
+    metrics:
+      - reports/cv-benchmark.json:
           cache: false

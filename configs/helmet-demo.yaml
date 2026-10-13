@@ -1,0 +1,14 @@
+profile: demo
+seed: 42
+max_train: 384
+max_val: 96
+max_test: 96
+epochs: 24
+imgsz: 320
+batch: 8
+freeze: 10
+device: cpu
+workers: 0
+min_map50: 0.0
+min_no_helmet_recall: 0.0
+prioritize_no_helmet: true

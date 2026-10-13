@@ -1,65 +1,23 @@
 pipeline {
   agent any
-
-  environment {
-    DOCKER_IMAGE = "${env.DOCKERHUB_USERNAME}/celeba-smiling-api:${env.CHANGE_ID ?: env.BUILD_NUMBER}"
-  }
-
   stages {
-    stage('Checkout') {
+    stage('Checkout') { steps { checkout scm } }
+    stage('Install') { steps { sh 'python -m pip install -r requirements-export.txt' } }
+    stage('Quality') { steps { sh 'make lint typecheck test' } }
+    stage('Model release validation') {
       steps {
-        checkout scm
-      }
-    }
-
-    stage('Install dependencies') {
-      steps {
-        sh 'python -m pip install --upgrade pip'
-        sh 'python -m pip install -r requirements.txt'
-      }
-    }
-
-    stage('DVC pipeline') {
-      steps {
+        sh 'python scripts/download_model.py'
+        sh 'python -m src.helmet.download'
         sh 'dvc repro'
+        sh 'docker compose up --build --abort-on-container-exit --exit-code-from cd-tests cd-tests'
       }
     }
-
-    stage('Tests') {
-      steps {
-        sh 'pytest'
-      }
-      post {
-        always {
-          junit allowEmptyResults: true, testResults: 'reports/junit.xml'
-          archiveArtifacts allowEmptyArchive: true, artifacts: 'coverage.xml,reports/metrics.json'
-        }
-      }
-    }
-
-    stage('Build Docker image') {
-      steps {
-        sh 'docker build -t $DOCKER_IMAGE .'
-      }
-    }
-
-    stage('Push Docker image') {
-      when {
-        changeRequest target: 'main'
-      }
-      steps {
-        withCredentials([usernamePassword(credentialsId: 'dockerhub', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASSWORD')]) {
-          sh 'echo "$DOCKER_PASSWORD" | docker login -u "$DOCKER_USER" --password-stdin'
-          sh 'docker push $DOCKER_IMAGE'
-        }
-      }
-    }
-
-    stage('DevSecOps metadata') {
-      steps {
-        sh 'python scripts/generate_dev_sec_ops.py --image $DOCKER_IMAGE --coverage coverage.xml --output dev_sec_ops.yml'
-        archiveArtifacts artifacts: 'dev_sec_ops.yml', fingerprint: true
-      }
+  }
+  post {
+    always {
+      sh 'docker compose down --remove-orphans'
+      junit allowEmptyResults: true, testResults: 'reports/junit.xml'
+      archiveArtifacts allowEmptyArchive: true, artifacts: 'coverage.xml,reports/cv-benchmark.json,reports/helmet-quality.json,models/cv/manifest.json'
     }
   }
 }

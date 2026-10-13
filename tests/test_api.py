@@ -2,7 +2,7 @@ from pathlib import Path
 
 from fastapi.testclient import TestClient
 
-from src.api import main as api_main
+from src.api import legacy as api_main
 from src.config import load_config
 from src.data.prepare import prepare_dataset
 from src.models.train import train_model

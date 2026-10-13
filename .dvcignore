@@ -3,3 +3,7 @@ __pycache__/
 .venv/
 dist/
 htmlcov/
+
+# Ultralytics generates annotation caches during training/evaluation.
+# They are runtime caches, not prepared dataset artifacts.
+data/helmet/**/*.cache
