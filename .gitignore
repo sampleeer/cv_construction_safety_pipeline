@@ -9,15 +9,12 @@ htmlcov/
 data/raw/*
 !data/raw/.gitkeep
 !data/raw/README.md
-data/processed/*
-!data/processed/.gitkeep
 
 models/*
 !models/.gitkeep
 
 reports/*
 !reports/.gitkeep
-!reports/report.md
 
 dist/
 *.zip

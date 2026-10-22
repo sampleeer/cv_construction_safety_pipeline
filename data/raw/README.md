@@ -1,21 +1,14 @@
-# Raw CelebA data
+# Исходные данные HelmetWatch
 
-Place the official CelebA attributes annotation file here:
-
-```text
-data/raw/list_attr_celeba.txt
-```
-
-The dataset page is:
-
-```text
-http://mmlab.ie.cuhk.edu.hk/projects/CelebA.html
-```
-
-The project can run in demo mode when the raw file is absent. For the final lab run,
-download the official annotations, place the file in this directory, then run:
+Источник — Construction-PPE. Скачайте архив командой из корня проекта:
 
 ```bash
-dvc add data/raw/list_attr_celeba.txt
-dvc repro
+python -m src.helmet.download
 ```
+
+Архив сохраняется в `data/raw/ppe/construction-ppe.zip` и не включается в Git.
+Стадия `prepare` в `dvc repro` создаёт трёхклассовый датасет в `data/helmet`:
+`helmet`, `no_helmet`, `person`. Параметры подготовки находятся в `params.yaml`.
+
+Источник и лицензия:
+[Construction-PPE](https://docs.ultralytics.com/datasets/detect/construction-ppe/), AGPL-3.0.

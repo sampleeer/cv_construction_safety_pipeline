@@ -1,1 +1,1 @@
-"""CelebA MLOps project package."""
+"""HelmetWatch construction-site helmet monitoring package."""

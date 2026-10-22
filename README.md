@@ -63,7 +63,6 @@ PR запускает проверки Python, правил событий, SQLi
 Исходные веса и экспорт: [Ultralytics YOLO11](https://docs.ultralytics.com/models/yolo11/).
 Датасет и веса в Git не включаются; загрузчик и fingerprints позволяют восстановить окружение.
 
-Старое упражнение CelebA сохранено отдельно: `src/api/legacy.py`, `src/data`, `src/models`.
 [Формулировка для резюме](docs/resume.md).
 
 ## Установка и запуск
